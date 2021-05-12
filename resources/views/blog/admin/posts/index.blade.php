@@ -3,9 +3,9 @@
 @section('content')
     <div class="container">
         <div class="row justify-content-center">
-            <div class="col-md-12">
+            <div class="col-md-12"> @include('blog.admin.posts.includes.result_messages')
                 <nav class="navbar navbar-toggleable-md navbar-light bg-faded">
-                    <a href="{{ route('blog.admin.categories.create') }}" class="btn btn-primary">Додати</a>
+                    <a href="{{ route('blog.admin.posts.create') }}" class="btn btn-primary">Додати</a>
                 </nav>
                 <div class="card">
                     <div class="card-body">
@@ -13,20 +13,21 @@
                             <thead>
                             <tr>
                                 <th>#</th>
+                                <th>Автор</th>
                                 <th>Категорія</th>
-                                <th>Батьківська</th>
+                                <th>Заголовок</th>
+                                <th>Дата публікації</th>
                             </tr>
                             </thead>
                             <tbody>
-                            @foreach ($paginator as $item)
-                                <tr>
-                                    <td>{{ $item->id }}</td>
-                                    <td><a href="{{ route('blog.admin.categories.edit', $item->id) }}">
-                                            {{ $item->title }}
-                                        </a>
-                                    </td>
-                                    <td @if(in_array($item->parent_id, [0, 1])) style="color:#ccc" @endif>
-                                        {{ $item->parentTitle }} {{-- $item->parentCategory->title --}}
+                            @foreach ($paginator as $post)
+                                @php /** @var \App\Models\BlogPost $post */ @endphp
+                                <tr @if (!$post->is_published) style="background-color: #ccc;" @endif>
+                                    <td>{{ $post->id }}</td>
+                                    <td>{{ $post->user->name }}</td>    {{-- виводимо ім'я користувача і назву категорії зі зв'язаних таблиць --}}
+                                    <td>{{ $post->category->title }}</td>
+                                    <td><a href="{{ route('blog.admin.posts.edit', $post->id) }}">{{ $post->title }}</a></td>
+                                    <td>{{ $post->published_at ? \Carbon\Carbon::parse($post->published_at)->format('d.M H:i') : '' }}
                                     </td>
                                 </tr>
                             @endforeach

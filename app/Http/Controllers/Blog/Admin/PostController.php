@@ -2,24 +2,34 @@
 
 namespace App\Http\Controllers\Blog\Admin;
 
-//use App\Http\Controllers\Controller;
-use App\Models\BlogCategory;
+use App\Repositories\BlogPostRepository;
 use App\Repositories\BlogCategoryRepository;
+use App\Http\Requests\BlogPostUpdateRequest;
+use App\Models\BlogPost;
+use App\Http\Requests\BlogPostCreateRequest;
+use App\Jobs\BlogPostAfterCreateJob;
+use App\Jobs\BlogPostAfterDeleteJob;
+
+
 use Illuminate\Support\Str;
 
-use App\Http\Requests\BlogCategoryUpdateRequest;
-use App\Http\Requests\BlogCategoryCreateRequest;
+use Illuminate\Http\Request;
 
-class CategoryController extends BaseController
+class PostController extends BaseController
 {
+    /**
+     * @var BlogPostRepository
+     */
+    private $blogPostRepository;
     /**
      * @var BlogCategoryRepository
      */
-    private $blogCategoryRepository;
+    private $blogCategoryRepository; // властивість через яку будемо звертатись в репозиторій категорій
 
     public function __construct()
     {
         parent::__construct();
+        $this->blogPostRepository = app(BlogPostRepository::class); //app вертає об'єкт класа
         $this->blogCategoryRepository = app(BlogCategoryRepository::class);
     }
     /**
@@ -28,11 +38,10 @@ class CategoryController extends BaseController
      * @return \Illuminate\Http\Response
      */
     public function index()
-    {//dd(__METHOD__);
-        //$paginator = BlogCategory::paginate(5);
-        $paginator = $this->blogCategoryRepository->getAllWithPaginate(5);
+    {
+        $paginator = $this->blogPostRepository->getAllWithPaginate();
 
-        return view('blog.admin.categories.index', compact('paginator'));
+        return view('blog.admin.posts.index', compact('paginator'));
 
         //
     }
@@ -43,14 +52,13 @@ class CategoryController extends BaseController
      * @return \Illuminate\Http\Response
      */
     public function create()
-    {//dd(__METHOD__);
-        $item = new BlogCategory();
+    {$item = new BlogPost();
         $categoryList = $this->blogCategoryRepository->getForComboBox();
-//BlogCategory::all();
 
-        return view('blog.admin.categories.edit', compact('item', 'categoryList'));
+
+        return view('blog.admin.posts.edit', compact('item', 'categoryList'));
+
         //
-
     }
 
     /**
@@ -59,17 +67,18 @@ class CategoryController extends BaseController
      * @param  \Illuminate\Http\Request  $request
      * @return \Illuminate\Http\Response
      */
-    public function store(BlogCategoryCreateRequest $request)
-    {//dd(__METHOD__);
+    public function store(BlogPostCreateRequest $request
+    )
+    {
         $data = $request->input(); //отримаємо масив даних, які надійшли з форми
 
-
-
-        $item = (new BlogCategory())->create($data); //створюємо об'єкт і додаємо в БД
+        $item = (new BlogPost())->create($data); //створюємо об'єкт і додаємо в БД
+        $job = new BlogPostAfterCreateJob($item);
+        $this->dispatch($job);
 
         if ($item) {
             return redirect()
-                ->route('blog.admin.categories.edit', [$item->id])
+                ->route('blog.admin.posts.edit', [$item->id])
                 ->with(['success' => 'Успішно збережено']);
         } else {
             return back()
@@ -86,7 +95,7 @@ class CategoryController extends BaseController
      * @return \Illuminate\Http\Response
      */
     public function show($id)
-    {//dd(__METHOD__);
+    {
         //
     }
 
@@ -97,19 +106,13 @@ class CategoryController extends BaseController
      * @return \Illuminate\Http\Response
      */
     public function edit($id)
-    {//dd(__METHOD__);
-        $item = BlogCategory::findOrFail($id);
-        $categoryList = BlogCategory::all();
-
-        $item = $this->blogCategoryRepository->getEdit($id);
+    { $item = $this->blogPostRepository->getEdit($id);
         if (empty($item)) {                         //помилка, якщо репозиторій не знайде наш ід
             abort(404);
         }
-        $categoryList = $this->blogCategoryRepository->getForComboBox($item->parent_id);
+        $categoryList = $this->blogCategoryRepository->getForComboBox();
 
-        return view('blog.admin.categories.edit', compact('item', 'categoryList'));
-        return view('blog.admin.categories.edit', compact('item', 'categoryList'));
-
+        return view('blog.admin.posts.edit', compact('item', 'categoryList'));
         //
     }
 
@@ -120,10 +123,8 @@ class CategoryController extends BaseController
      * @param  int  $id
      * @return \Illuminate\Http\Response
      */
-    public function update(BlogCategoryUpdateRequest $request, $id)
-    {//dd(__METHOD__);
-        $item = $this->blogCategoryRepository->getEdit($id);
-
+    public function update(BlogPostUpdateRequest $request, $id)
+    { $item = $this->blogPostRepository->getEdit($id);
         if (empty($item)) { //якщо ід не знайдено
             return back() //redirect back
             ->withErrors(['msg' => "Запис id=[{$id}] не знайдено"]) //видати помилку
@@ -133,17 +134,18 @@ class CategoryController extends BaseController
         $data = $request->all(); //отримаємо масив даних, які надійшли з форми
 
 
-        $result = $item->update($data);  //оновлюємо дані об'єкта і зберігаємо в БД
+        $result = $item->update($data); //оновлюємо дані об'єкта і зберігаємо в БД
 
         if ($result) {
             return redirect()
-                ->route('blog.admin.categories.edit', $item->id)
+                ->route('blog.admin.posts.edit', $item->id)
                 ->with(['success' => 'Успішно збережено']);
         } else {
             return back()
                 ->with(['msg' => 'Помилка збереження'])
                 ->withInput();
         }
+
         //
     }
 
@@ -154,7 +156,21 @@ class CategoryController extends BaseController
      * @return \Illuminate\Http\Response
      */
     public function destroy($id)
-    {//dd(__METHOD__);
+    {
+        $result = BlogPost::destroy($id); //софт деліт, запис лишається
+        BlogPostAfterDeleteJob::dispatch($id)->delay(20);
+
+        //$result = BlogPost::find($id)->forceDelete(); //повне видалення з БД
+
+        if ($result) {
+            return redirect()
+                ->route('blog.admin.posts.index')
+                ->with(['success' => "Запис id[$id] видалено"]);
+        } else {
+            return back()
+                ->withErrors(['msg' => 'Помилка видалення']);
+        }
+
         //
     }
 }
