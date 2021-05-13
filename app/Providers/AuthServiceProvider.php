@@ -14,8 +14,9 @@ class AuthServiceProvider extends ServiceProvider
      */
     protected $policies = [
         // 'App\Models\Model' => 'App\Policies\ModelPolicy',
+        'App\Models\Model' => 'App\Policies\ModelPolicy',
     ];
-
+    const ADMIN_ID = 2;
     /**
      * Register any authentication / authorization services.
      *
@@ -26,5 +27,8 @@ class AuthServiceProvider extends ServiceProvider
         $this->registerPolicies();
 
         //
+        Gate::define('open', function ($user) {
+            return $user->id == self::ADMIN_ID;
+        });
     }
 }

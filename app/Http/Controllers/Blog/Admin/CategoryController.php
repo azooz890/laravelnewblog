@@ -6,7 +6,7 @@ namespace App\Http\Controllers\Blog\Admin;
 use App\Models\BlogCategory;
 use App\Repositories\BlogCategoryRepository;
 use Illuminate\Support\Str;
-
+use Illuminate\Support\Facades\Gate;
 use App\Http\Requests\BlogCategoryUpdateRequest;
 use App\Http\Requests\BlogCategoryCreateRequest;
 
@@ -28,14 +28,18 @@ class CategoryController extends BaseController
      * @return \Illuminate\Http\Response
      */
     public function index()
-    {//dd(__METHOD__);
+    {
+        if(!Gate::allows('open', auth()->id())){
+            return redirect()->route('blog.posts.index');
+        }
+
         //$paginator = BlogCategory::paginate(5);
-        $paginator = $this->blogCategoryRepository->getAllWithPaginate(5);
+        $paginator = $this->blogCategoryRepository->getAllWithPaginate(6);
 
         return view('blog.admin.categories.index', compact('paginator'));
-
-        //
+        //dd(__METHOD__);
     }
+
 
     /**
      * Show the form for creating a new resource.
@@ -97,20 +101,17 @@ class CategoryController extends BaseController
      * @return \Illuminate\Http\Response
      */
     public function edit($id)
-    {//dd(__METHOD__);
-        $item = BlogCategory::findOrFail($id);
-        $categoryList = BlogCategory::all();
+    {
+        if(!Gate::allows('open', auth()->id())){
+            return redirect()->route('blog.posts.index');
+        }
 
         $item = $this->blogCategoryRepository->getEdit($id);
         if (empty($item)) {                         //помилка, якщо репозиторій не знайде наш ід
             abort(404);
         }
         $categoryList = $this->blogCategoryRepository->getForComboBox($item->parent_id);
-
         return view('blog.admin.categories.edit', compact('item', 'categoryList'));
-        return view('blog.admin.categories.edit', compact('item', 'categoryList'));
-
-        //
     }
 
     /**

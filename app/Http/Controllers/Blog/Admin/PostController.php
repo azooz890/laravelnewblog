@@ -9,6 +9,7 @@ use App\Models\BlogPost;
 use App\Http\Requests\BlogPostCreateRequest;
 use App\Jobs\BlogPostAfterCreateJob;
 use App\Jobs\BlogPostAfterDeleteJob;
+use Illuminate\Support\Facades\Gate;
 
 
 use Illuminate\Support\Str;
@@ -39,11 +40,14 @@ class PostController extends BaseController
      */
     public function index()
     {
+
+        if(!Gate::allows('open', auth()->id())){
+            return redirect()->route('blog.posts.index');
+        }
+
         $paginator = $this->blogPostRepository->getAllWithPaginate();
 
         return view('blog.admin.posts.index', compact('paginator'));
-
-        //
     }
 
     /**
@@ -106,15 +110,19 @@ class PostController extends BaseController
      * @return \Illuminate\Http\Response
      */
     public function edit($id)
-    { $item = $this->blogPostRepository->getEdit($id);
+    {
+        if(!Gate::allows('open', auth()->id())){
+            return redirect()->route('blog.posts.index');
+        }
+
+        $item = $this->blogPostRepository->getEdit($id);
         if (empty($item)) {                         //помилка, якщо репозиторій не знайде наш ід
             abort(404);
         }
         $categoryList = $this->blogCategoryRepository->getForComboBox();
-
         return view('blog.admin.posts.edit', compact('item', 'categoryList'));
-        //
     }
+
 
     /**
      * Update the specified resource in storage.
